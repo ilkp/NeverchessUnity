@@ -1,13 +1,26 @@
 ﻿
-public class MoveData
+public struct MoveData
 {
-	public PieceCode upgrade = PieceCode.EMPTY;
-	public bool shortCastle = false;
-	public bool longCastle = false;
-	public bool doublePawnMove = false;
-	public bool enPassant = false;
-	public int xStart = -1;
-	public int yStart = -1;
-	public int xEnd = -1;
-	public int yEnd = -1;
+	public PieceCode upgrade;
+	public bool shortCastle;
+	public bool longCastle;
+	public bool doublePawnMove;
+	public bool enPassant;
+	public int xStart;
+	public int yStart;
+	public int xEnd;
+	public int yEnd;
+
+	public MoveData(int xStart, int yStart, int xEnd, int yEnd)
+	{
+		upgrade = PieceCode.EMPTY;
+		shortCastle = false;
+		longCastle = false;
+		doublePawnMove = false;
+		enPassant = false;
+		this.xStart = xStart;
+		this.yStart = yStart;
+		this.xEnd = xEnd;
+		this.yEnd = yEnd;
+	}
 }
