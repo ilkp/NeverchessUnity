@@ -27,9 +27,8 @@ public class ChessAI
 	private Dictionary<ulong, AlphaBetaEvaluation> boardEvaluations = new Dictionary<ulong, AlphaBetaEvaluation>();
 	private Dictionary<ulong, int> hashPositions = new Dictionary<ulong, int>();
 
-	public ChessAI(ANNetwork ann)
+	public ChessAI()
 	{
-		_ann = ann;
 		calculateZobristValues();
 	}
 
@@ -51,15 +50,15 @@ public class ChessAI
 	{
 		bool savePosition = false;
 		AlphaBetaEvaluation evaluation = new AlphaBetaEvaluation();
-		ulong zHash = zobristHash(boardStateData);
-		if (boardEvaluations.ContainsKey(zHash))
-		{
-			return boardEvaluations[zHash];
-		}
-		else
-		{
-			savePosition = true;
-		}
+		//ulong zHash = zobristHash(boardStateData);
+		//if (boardEvaluations.ContainsKey(zHash))
+		//{
+		//	return boardEvaluations[zHash];
+		//}
+		//else
+		//{
+		//	savePosition = true;
+		//}
 
 		List<MoveData> moves = Chess.GenRawMoves(boardStateData);
 		List<BoardStateData> newStates = Chess.FilterMoves(boardStateData, ref moves);
@@ -105,10 +104,10 @@ public class ChessAI
 				break;
 			}
 		}
-		if (savePosition)
-		{
-			boardEvaluations[zHash] = evaluation;
-		}
+		//if (savePosition)
+		//{
+		//	boardEvaluations[zHash] = evaluation;
+		//}
 		return evaluation;
 	}
 

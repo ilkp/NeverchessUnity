@@ -2,11 +2,15 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using System.IO;
 
 public class BoardManager : MonoBehaviour
 {
-	private const int BOARDLENGTH = 8;
-
+	[SerializeField] private TMPro.TMP_Dropdown _whiteAiSelect;
+	[SerializeField] private TMPro.TMP_Dropdown _blackAiSelect;
+	[SerializeField] private UnityEngine.UI.Toggle _waitOnAiToggle;
+	[SerializeField] private UnityEngine.UI.Image _readyImage;
+	[SerializeField] private GameObject _upgradeGraphic;
 	[SerializeField] private Sprite _spriteBoard;
 	[SerializeField] private Sprite _spriteWK;
 	[SerializeField] private Sprite _spriteBK;
@@ -23,7 +27,7 @@ public class BoardManager : MonoBehaviour
 
 	private BoardStateData _boardData;
 	private bool _processingAI = false;
-	private bool[] _sideIsPlayer = new bool[2] { true, false };
+	private bool[] _sideIsPlayer = new bool[2] { false, false};
 
 	private Camera _camera;
 	private GameObject _board;
@@ -32,28 +36,33 @@ public class BoardManager : MonoBehaviour
 	private int _selectedX;
 	private int _selectedY;
 	private Coroutine _lerping;
-	private ANNetwork ann;
+	private ANNetwork _aiWhite;
+	private ANNetwork _aiBlack;
 	private ChessAI ai;
 	private int _xhit;
 	private int _yhit;
-	private bool _waitForAI = false;
 	private bool _whiteVictory = false;
 	private bool _blackVictory = false;
+	private bool _waitOnAi = true;
+	private bool _active = false;
 
 	// Start is called before the first frame update
 	void Start()
-    {
+	{
+		ai = new ChessAI();
 		Chess.InitBoardData(ref _boardData);
 		InitBoard();
-		ann = new ANNetwork();
-		ann.ReadANN("C:\\Projektit\\Neverchess\\Neverchess\\Release\\testANN.ann");
-		ai = new ChessAI(ann);
-		_camera = Camera.main;
-    }
+		Restart();
+	}
 
     // Update is called once per frame
     void Update()
     {
+		_waitOnAi = _waitOnAiToggle.isOn;
+		if (!_active)
+		{
+			return;
+		}
 		if (_whiteVictory)
 		{
 			Debug.Log("White victory");
@@ -62,11 +71,60 @@ public class BoardManager : MonoBehaviour
 		{
 			Debug.Log("Black victory");
 		}
-        if (Input.GetMouseButtonDown(0))
+		else
 		{
-			OnClick();
+			HandleTurn();
 		}
     }
+
+	public void Restart()
+	{
+		string path = Path.GetFullPath("./") + "Ann\\";
+		Chess.InitBoardData(ref _boardData);
+		_sideIsPlayer[0] = false;
+		_sideIsPlayer[1] = false;
+		_aiWhite = new ANNetwork();
+		_aiBlack = new ANNetwork();
+		switch (_whiteAiSelect.value)
+		{
+			case 0:
+				_sideIsPlayer[0] = true;
+				break;
+			case 1:
+				_aiWhite.ReadANN(path + "ann100.ann");
+				break;
+			case 2:
+				_aiWhite.ReadANN(path + "ann500.ann");
+				break;
+			case 3:
+				_aiWhite.ReadANN(path + "ann2500.ann");
+				break;
+			case 4:
+				_aiWhite.ReadANN(path + "ann12500.ann");
+				break;
+		}
+		switch (_blackAiSelect.value)
+		{
+			case 0:
+				_sideIsPlayer[1] = true;
+				break;
+			case 1:
+				_aiBlack.ReadANN(path + "ann100.ann");
+				break;
+			case 2:
+				_aiBlack.ReadANN(path + "ann500.ann");
+				break;
+			case 3:
+				_aiBlack.ReadANN(path + "ann2500.ann");
+				break;
+			case 4:
+				_aiBlack.ReadANN(path + "ann12500.ann");
+				break;
+		}
+		_camera = Camera.main;
+		_active = true;
+		UpdateGraphics();
+	}
 
 	private void OnClick()
 	{
@@ -82,22 +140,18 @@ public class BoardManager : MonoBehaviour
 				DeSelect();
 			}
 			// DESELECT WHEN CLICKING ANOTHER OWN PIECE
-			else if (_boardData._pieces[_yhit * BOARDLENGTH + _xhit] != PieceCode.EMPTY && Chess.PiecesSide(_boardData, _xhit, _yhit) == _boardData._turn)
+			else if (_boardData._pieces[_yhit * Chess.BOARD_LENGTH + _xhit] != PieceCode.EMPTY && Chess.PiecesSide(_boardData, _xhit, _yhit) == _boardData._turn)
 			{
 				DeSelect();
 				Select(_xhit, _yhit);
 			}
 			// MAKE MOVE
-			else if (_selectedPiece != null && (_boardData._pieces[_yhit * BOARDLENGTH + _xhit] == PieceCode.EMPTY || Chess.PiecesSide(_boardData, _xhit, _yhit) != _boardData._turn))
+			else if (_selectedPiece != null && (_boardData._pieces[_yhit * Chess.BOARD_LENGTH + _xhit] == PieceCode.EMPTY || Chess.PiecesSide(_boardData, _xhit, _yhit) != _boardData._turn))
 			{
 				MoveData move = MakeMove(_selectedX, _selectedY, _xhit, _yhit);
 				if (Chess.MoveIsLegal(move, _boardData) && Chess.MoveIsSafe(move, _boardData))
 				{
 					HandleMove(move);
-					if (!_sideIsPlayer[_boardData._turn])
-					{
-						StartCoroutine(HandleAI());
-					}
 				}
 				else
 				{
@@ -107,9 +161,34 @@ public class BoardManager : MonoBehaviour
 		}
 	}
 
+	private void HandleTurn()
+	{
+		if (_processingAI)
+		{
+			return;
+		}
+		if (!_sideIsPlayer[_boardData._turn])
+		{
+
+			StartCoroutine(HandleAI());
+		}
+		else if (Input.GetMouseButtonDown(0))
+		{
+			OnClick();
+		}
+	}
+
 	private IEnumerator HandleAI()
 	{
 		_processingAI = true;
+		if (_boardData._turn == 0)
+		{
+			ai._ann = _aiWhite;
+		}
+		else
+		{
+			ai._ann = _aiBlack;
+		}
 		ai._boardStateData = new BoardStateData(_boardData);
 		ai.Start();
 
@@ -119,20 +198,16 @@ public class BoardManager : MonoBehaviour
 		}
 
 		MoveData result = ai._result;
-
-		if (Chess.MoveIsLegal(result, _boardData) && Chess.MoveIsSafe(result, _boardData))
+		if (_waitOnAi)
 		{
-			HandleMove(result);
+			_readyImage.color = Color.green;
+			while (!Input.GetKeyDown(KeyCode.Space))
+			{
+				yield return null;
+			}
 		}
-		else
-		{
-			Debug.LogWarning("AI GAVE ILLEGAL MOVE\n"
-				+ "(" + result.xStart + ", " + result.yStart + ") -> (" + result.xEnd + ", " + result.yEnd + ")\n"
-				+ "en passant: " + result.enPassant + "\n"
-				+ "double pawn move: " + result.doublePawnMove + "\n"
-				+ "short castle: " + result.shortCastle + "\n"
-				+ "long castle: " + result.longCastle);
-		}
+		HandleMove(result);
+		_readyImage.color = Color.red;
 		_processingAI = false;
 	}
 
@@ -151,6 +226,7 @@ public class BoardManager : MonoBehaviour
 		Chess.FilterMoves(_boardData, ref moves);
 		if (moves.Count == 0)
 		{
+			_active = false;
 			if (_boardData._turn == 0)
 			{
 				_blackVictory = true;
@@ -287,8 +363,9 @@ public class BoardManager : MonoBehaviour
 	private MoveData MakeMove(int xStart, int yStart, int xEnd, int yEnd)
 	{
 		MoveData move = new MoveData(xStart, yStart, xEnd, yEnd);
+		move.upgrade = PieceCode.EMPTY;
 
-		PieceCode piece = _boardData._pieces[yStart * BOARDLENGTH + xStart];
+		PieceCode piece = _boardData._pieces[yStart * Chess.BOARD_LENGTH + xStart];
 		if (piece == PieceCode.W_KING || piece == PieceCode.B_KING)
 		{
 			if (xEnd == xStart + 2)
@@ -308,12 +385,19 @@ public class BoardManager : MonoBehaviour
 			}
 			else if (yEnd == yStart + (_boardData._turn == 0 ? 1 : -1)
 				&& (xEnd == xStart + 1 || xEnd == xStart - 1)
-				&& _boardData._pieces[yEnd * BOARDLENGTH + xEnd] == PieceCode.EMPTY)
+				&& _boardData._pieces[yEnd * Chess.BOARD_LENGTH + xEnd] == PieceCode.EMPTY)
 			{
 				move.enPassant = true;
 			}
+			else if (_boardData._turn == 0 && yEnd == Chess.BOARD_LENGTH - 1)
+			{
+				move.upgrade = PieceCode.W_QUEEN;
+			}
+			else if (_boardData._turn == 1 && yEnd == 0)
+			{
+				move.upgrade = PieceCode.B_QUEEN;
+			}
 		}
-		move.upgrade = PieceCode.EMPTY;
 		return move;
 	}
 
