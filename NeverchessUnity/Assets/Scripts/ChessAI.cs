@@ -39,6 +39,14 @@ public class ChessAI
 		_thread.Start();
 	}
 
+	public void Stop()
+	{
+		if (_thread != null)
+		{
+			_thread.Abort();
+		}
+	}
+
 	public void Process()
 	{
 		AlphaBetaEvaluation eval = alphaBeta(_boardStateData, _depth, -1000.0f, 1000.0f);

@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using System.IO;
+using UnityEngine.EventSystems;
+using TMPro;
 
 public class BoardManager : MonoBehaviour
 {
@@ -10,7 +11,7 @@ public class BoardManager : MonoBehaviour
 	[SerializeField] private TMPro.TMP_Dropdown _blackAiSelect;
 	[SerializeField] private UnityEngine.UI.Toggle _waitOnAiToggle;
 	[SerializeField] private UnityEngine.UI.Image _readyImage;
-	[SerializeField] private GameObject _upgradeGraphic;
+	[SerializeField] private TMP_Text _winText;
 	[SerializeField] private Sprite _spriteBoard;
 	[SerializeField] private Sprite _spriteWK;
 	[SerializeField] private Sprite _spriteBK;
@@ -26,30 +27,34 @@ public class BoardManager : MonoBehaviour
 	[SerializeField] private Sprite _spriteBP;
 
 	private BoardStateData _boardData;
-	private bool _processingAI = false;
+	private Dictionary<ulong, int> hashPositions;
 	private bool[] _sideIsPlayer = new bool[2] { false, false};
+	private bool _active = false;
+	private bool _processingAI = false;
+	private bool _waitOnAi = true;
+	private ANNetwork _annWhite;
+	private ANNetwork _annBlack;
+	private ChessAI _ai;
+	private Coroutine _aiCoroutine = null;
 
 	private Camera _camera;
 	private GameObject _board;
 	private GameObject[] _pieceObjects;
 	private GameObject _selectedPiece;
+	private Coroutine _lerping;
 	private int _selectedX;
 	private int _selectedY;
-	private Coroutine _lerping;
-	private ANNetwork _aiWhite;
-	private ANNetwork _aiBlack;
-	private ChessAI ai;
 	private int _xhit;
 	private int _yhit;
-	private bool _whiteVictory = false;
-	private bool _blackVictory = false;
-	private bool _waitOnAi = true;
-	private bool _active = false;
 
 	// Start is called before the first frame update
 	void Start()
 	{
-		ai = new ChessAI();
+		_camera = Camera.main;
+		_ai = new ChessAI();
+		_annWhite = new ANNetwork();
+		_annBlack = new ANNetwork();
+		hashPositions = new Dictionary<ulong, int>();
 		Chess.InitBoardData(ref _boardData);
 		InitBoard();
 		Restart();
@@ -63,44 +68,37 @@ public class BoardManager : MonoBehaviour
 		{
 			return;
 		}
-		if (_whiteVictory)
-		{
-			Debug.Log("White victory");
-		}
-		else if (_blackVictory)
-		{
-			Debug.Log("Black victory");
-		}
-		else
-		{
-			HandleTurn();
-		}
+		HandleTurn();
     }
 
 	public void Restart()
 	{
+		Stop();
+		EventSystem.current.SetSelectedGameObject(null);
+		_active = false;
+		_processingAI = false;
+		_winText.enabled = false;
+		hashPositions.Clear();
 		string path = Path.GetFullPath("./") + "Ann\\";
 		Chess.InitBoardData(ref _boardData);
 		_sideIsPlayer[0] = false;
 		_sideIsPlayer[1] = false;
-		_aiWhite = new ANNetwork();
-		_aiBlack = new ANNetwork();
 		switch (_whiteAiSelect.value)
 		{
 			case 0:
 				_sideIsPlayer[0] = true;
 				break;
 			case 1:
-				_aiWhite.ReadANN(path + "ann100.ann");
+				_annWhite.ReadANN(path + "ann100.ann");
 				break;
 			case 2:
-				_aiWhite.ReadANN(path + "ann500.ann");
+				_annWhite.ReadANN(path + "ann500.ann");
 				break;
 			case 3:
-				_aiWhite.ReadANN(path + "ann2500.ann");
+				_annWhite.ReadANN(path + "ann2500.ann");
 				break;
 			case 4:
-				_aiWhite.ReadANN(path + "ann12500.ann");
+				_annWhite.ReadANN(path + "ann12500.ann");
 				break;
 		}
 		switch (_blackAiSelect.value)
@@ -109,21 +107,20 @@ public class BoardManager : MonoBehaviour
 				_sideIsPlayer[1] = true;
 				break;
 			case 1:
-				_aiBlack.ReadANN(path + "ann100.ann");
+				_annBlack.ReadANN(path + "ann100.ann");
 				break;
 			case 2:
-				_aiBlack.ReadANN(path + "ann500.ann");
+				_annBlack.ReadANN(path + "ann500.ann");
 				break;
 			case 3:
-				_aiBlack.ReadANN(path + "ann2500.ann");
+				_annBlack.ReadANN(path + "ann2500.ann");
 				break;
 			case 4:
-				_aiBlack.ReadANN(path + "ann12500.ann");
+				_annBlack.ReadANN(path + "ann12500.ann");
 				break;
 		}
-		_camera = Camera.main;
-		_active = true;
 		UpdateGraphics();
+		_active = true;
 	}
 
 	private void OnClick()
@@ -170,7 +167,7 @@ public class BoardManager : MonoBehaviour
 		if (!_sideIsPlayer[_boardData._turn])
 		{
 
-			StartCoroutine(HandleAI());
+			_aiCoroutine = StartCoroutine(HandleAI());
 		}
 		else if (Input.GetMouseButtonDown(0))
 		{
@@ -178,26 +175,53 @@ public class BoardManager : MonoBehaviour
 		}
 	}
 
+	private int PositionAppeared()
+	{
+		ulong hash = _boardData.ZobristHash();
+		if (!hashPositions.ContainsKey(hash))
+		{
+			hashPositions.Add(hash, 1);
+			return 1;
+		}
+		else
+		{
+			return ++hashPositions[hash];
+		}
+	}
+
+	private void Stop()
+	{
+		if (_aiCoroutine != null)
+		{
+			StopCoroutine(_aiCoroutine);
+		}
+		if (_ai != null)
+		{
+			_ai.Stop();
+		}
+		_readyImage.color = Color.red;
+	}
+
 	private IEnumerator HandleAI()
 	{
 		_processingAI = true;
 		if (_boardData._turn == 0)
 		{
-			ai._ann = _aiWhite;
+			_ai._ann = _annWhite;
 		}
 		else
 		{
-			ai._ann = _aiBlack;
+			_ai._ann = _annBlack;
 		}
-		ai._boardStateData = new BoardStateData(_boardData);
-		ai.Start();
+		_ai._boardStateData = new BoardStateData(_boardData);
+		_ai.Start();
 
-		while (!ai._ready)
+		while (!_ai._ready)
 		{
 			yield return null;
 		}
 
-		MoveData result = ai._result;
+		MoveData result = _ai._result;
 		if (_waitOnAi)
 		{
 			_readyImage.color = Color.green;
@@ -227,14 +251,22 @@ public class BoardManager : MonoBehaviour
 		if (moves.Count == 0)
 		{
 			_active = false;
+			_winText.enabled = true;
 			if (_boardData._turn == 0)
 			{
-				_blackVictory = true;
+				_winText.text = "White win";
 			}
 			else
 			{
-				_whiteVictory = true;
+				_winText.text = "Black win";
 			}
+		}
+		int npos = PositionAppeared();
+		if (npos > 2)
+		{
+			_winText.enabled = true;
+			_winText.text = "Draw by repetition";
+			_active = false;
 		}
 	}
 
@@ -410,5 +442,14 @@ public class BoardManager : MonoBehaviour
 				SetSquareGraphic(x, y);
 			}
 		}
+	}
+
+	public void QuitApp()
+	{
+		#if UNITY_EDITOR
+		UnityEditor.EditorApplication.isPlaying = false;
+		#else
+		Application.Quit();
+		#endif
 	}
 }
