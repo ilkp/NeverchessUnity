@@ -33,9 +33,7 @@ public class ANNLayer
 		{
 			_outputs[i] = 0.0f;
 			for (int j = 0; j < _previousLayer._layerSize; ++j)
-			{
 				_outputs[i] += _weights[i * _previousLayer._layerSize + j] * _previousLayer._outputs[j];
-			}
 			_outputs[i] += _biases[i];
 			_outputs[i] = _activationFunction(_outputs[i]);
 		}

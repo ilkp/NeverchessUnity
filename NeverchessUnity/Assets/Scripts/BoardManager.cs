@@ -65,9 +65,7 @@ public class BoardManager : MonoBehaviour
     {
 		_waitOnAi = _waitOnAiToggle.isOn;
 		if (!_active)
-		{
 			return;
-		}
 		HandleTurn();
     }
 
@@ -100,6 +98,12 @@ public class BoardManager : MonoBehaviour
 			case 4:
 				_annWhite.ReadANN(path + "ann12500.ann");
 				break;
+			case 5:
+				_annWhite.ReadANN(path + "ann16384.ann");
+				break;
+			case 6:
+				_annWhite.ReadANN(path + "ann32768.ann");
+				break;
 		}
 		switch (_blackAiSelect.value)
 		{
@@ -118,6 +122,12 @@ public class BoardManager : MonoBehaviour
 			case 4:
 				_annBlack.ReadANN(path + "ann12500.ann");
 				break;
+			case 5:
+				_annBlack.ReadANN(path + "ann16384.ann");
+				break;
+			case 6:
+				_annBlack.ReadANN(path + "ann32768.ann");
+				break;
 		}
 		UpdateGraphics();
 		_active = true;
@@ -133,9 +143,7 @@ public class BoardManager : MonoBehaviour
 			_yhit = (int)(hit.point.y + 0.5f);
 			// DESELECT WHEN CLICKING SAME PIECE
 			if (_selectedX == _xhit && _selectedY == _yhit)
-			{
 				DeSelect();
-			}
 			// DESELECT WHEN CLICKING ANOTHER OWN PIECE
 			else if (_boardData._pieces[_yhit * Chess.BOARD_LENGTH + _xhit] != PieceCode.EMPTY && Chess.PiecesSide(_boardData, _xhit, _yhit) == _boardData._turn)
 			{
@@ -147,13 +155,9 @@ public class BoardManager : MonoBehaviour
 			{
 				MoveData move = MakeMove(_selectedX, _selectedY, _xhit, _yhit);
 				if (Chess.MoveIsLegal(move, _boardData) && Chess.MoveIsSafe(move, _boardData))
-				{
 					HandleMove(move);
-				}
 				else
-				{
 					DeSelect();
-				}
 			}
 		}
 	}
@@ -161,18 +165,11 @@ public class BoardManager : MonoBehaviour
 	private void HandleTurn()
 	{
 		if (_processingAI)
-		{
 			return;
-		}
 		if (!_sideIsPlayer[_boardData._turn])
-		{
-
 			_aiCoroutine = StartCoroutine(HandleAI());
-		}
 		else if (Input.GetMouseButtonDown(0))
-		{
 			OnClick();
-		}
 	}
 
 	private int PositionAppeared()
@@ -184,21 +181,15 @@ public class BoardManager : MonoBehaviour
 			return 1;
 		}
 		else
-		{
 			return ++hashPositions[hash];
-		}
 	}
 
 	private void Stop()
 	{
 		if (_aiCoroutine != null)
-		{
 			StopCoroutine(_aiCoroutine);
-		}
 		if (_ai != null)
-		{
 			_ai.Stop();
-		}
 		_readyImage.color = Color.red;
 	}
 
@@ -206,29 +197,21 @@ public class BoardManager : MonoBehaviour
 	{
 		_processingAI = true;
 		if (_boardData._turn == 0)
-		{
 			_ai._ann = _annWhite;
-		}
 		else
-		{
 			_ai._ann = _annBlack;
-		}
 		_ai._boardStateData = new BoardStateData(_boardData);
 		_ai.Start();
 
 		while (!_ai._ready)
-		{
 			yield return null;
-		}
 
 		MoveData result = _ai._result;
 		if (_waitOnAi)
 		{
 			_readyImage.color = Color.green;
 			while (!Input.GetKeyDown(KeyCode.Space))
-			{
 				yield return null;
-			}
 		}
 		HandleMove(result);
 		_readyImage.color = Color.red;
@@ -253,13 +236,9 @@ public class BoardManager : MonoBehaviour
 			_active = false;
 			_winText.enabled = true;
 			if (_boardData._turn == 0)
-			{
 				_winText.text = "White win";
-			}
 			else
-			{
 				_winText.text = "Black win";
-			}
 		}
 		int npos = PositionAppeared();
 		if (npos > 2)
@@ -283,9 +262,7 @@ public class BoardManager : MonoBehaviour
 	private void DeSelect()
 	{
 		if (_lerping != null)
-		{
 			StopCoroutine(_lerping);
-		}
 		if (_selectedPiece != null)
 		{
 			_selectedPiece.transform.localScale = Vector3.one;
@@ -401,20 +378,14 @@ public class BoardManager : MonoBehaviour
 		if (piece == PieceCode.W_KING || piece == PieceCode.B_KING)
 		{
 			if (xEnd == xStart + 2)
-			{
 				move.shortCastle = true;
-			}
 			else if (xEnd == xStart - 2)
-			{
 				move.longCastle = true;
-			}
 		}
 		else if (piece == PieceCode.B_PAWN || piece == PieceCode.W_PAWN)
 		{
 			if (yEnd == yStart + (_boardData._turn == 0 ? 2 : -2))
-			{
 				move.doublePawnMove = true;
-			}
 			else if (yEnd == yStart + (_boardData._turn == 0 ? 1 : -1)
 				&& (xEnd == xStart + 1 || xEnd == xStart - 1)
 				&& _boardData._pieces[yEnd * Chess.BOARD_LENGTH + xEnd] == PieceCode.EMPTY)
@@ -422,13 +393,9 @@ public class BoardManager : MonoBehaviour
 				move.enPassant = true;
 			}
 			else if (_boardData._turn == 0 && yEnd == Chess.BOARD_LENGTH - 1)
-			{
 				move.upgrade = PieceCode.W_QUEEN;
-			}
 			else if (_boardData._turn == 1 && yEnd == 0)
-			{
 				move.upgrade = PieceCode.B_QUEEN;
-			}
 		}
 		return move;
 	}
@@ -438,9 +405,7 @@ public class BoardManager : MonoBehaviour
 		for (int y = 0; y < Chess.BOARD_LENGTH; ++y)
 		{
 			for (int x = 0; x < Chess.BOARD_LENGTH; ++x)
-			{
 				SetSquareGraphic(x, y);
-			}
 		}
 	}
 

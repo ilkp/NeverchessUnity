@@ -81,21 +81,13 @@ public class ANNetwork
 		if (!boardStateData._kingMoved[0])
 		{
 			if (!boardStateData._qRookMoved[0])
-			{
 				_inputLayer._outputs[++inputPos] = 1.0f;
-			}
 			else
-			{
 				_inputLayer._outputs[++inputPos] = 0.0f;
-			}
 			if (!boardStateData._kRookMoved[0])
-			{
 				_inputLayer._outputs[++inputPos] = 1.0f;
-			}
 			else
-			{
 				_inputLayer._outputs[++inputPos] = 0.0f;
-			}
 		}
 		else
 		{
@@ -105,21 +97,13 @@ public class ANNetwork
 		if (!boardStateData._kingMoved[1])
 		{
 			if (!boardStateData._qRookMoved[1])
-			{
 				_inputLayer._outputs[++inputPos] = 1.0f;
-			}
 			else
-			{
 				_inputLayer._outputs[++inputPos] = 0.0f;
-			}
 			if (!boardStateData._kRookMoved[1])
-			{
 				_inputLayer._outputs[++inputPos] = 1.0f;
-			}
 			else
-			{
 				_inputLayer._outputs[++inputPos] = 0.0f;
-			}
 		}
 		else
 		{
@@ -130,45 +114,31 @@ public class ANNetwork
 		{
 			int epMask = 1 << boardStateData._enPassant;
 			for (int i = 0; i < 8; ++i)
-			{
 				_inputLayer._outputs[++inputPos] = (epMask >> i == 1) ? 1.0f : 0.0f;
-			}
 		}
 		else
 		{
 			for (int i = 0; i < 8; ++i)
-			{
 				_inputLayer._outputs[++inputPos] = 0.0f;
-			}
 		}
 
 		for (int y = 0; y < Chess.BOARD_LENGTH; ++y)
-		{
 			for (int x = 0; x < Chess.BOARD_LENGTH; ++x)
-			{
 				for (int i = 0; i < Chess.PIECE_CODE_LENGTH; ++i)
-				{
 					_inputLayer._outputs[++inputPos] = ((int)boardStateData._pieces[y * Chess.BOARD_LENGTH + x] >> i) & 1;
-				}
-			}
-		}
 	}
 
 	private float ReLu(float x)
 	{
 		if (x < 0.0f)
-		{
 			return 0;
-		}
 		return x;
 	}
 
 	private float dRelu(float x)
 	{
 		if (x < 0.0f)
-		{
 			return 0.0f;
-		}
 		return 1.0f;
 	}
 
